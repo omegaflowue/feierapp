@@ -72,4 +72,51 @@ export const contributionService = {
   }
 }
 
+export const rideService = {
+  // Get all rides for an event
+  getRides(eventCode) {
+    return api.get(`/events/${eventCode}/rides`)
+  },
+  
+  // Create ride offer
+  createOffer(eventCode, offerData) {
+    return api.post(`/events/${eventCode}/ride-offers`, offerData)
+  },
+  
+  // Create ride request
+  createRequest(eventCode, requestData) {
+    return api.post(`/events/${eventCode}/ride-requests`, requestData)
+  },
+  
+  // Get rides for specific guest
+  getGuestRides(guestToken) {
+    return api.get(`/guests/${guestToken}/rides`)
+  },
+  
+  // Update ride offer
+  updateOffer(offerId, offerData) {
+    return api.put(`/ride-offers/${offerId}`, offerData)
+  },
+  
+  // Update ride request
+  updateRequest(requestId, requestData) {
+    return api.put(`/ride-requests/${requestId}`, requestData)
+  },
+  
+  // Create ride match
+  createMatch(matchData) {
+    return api.post('/ride-matches', matchData)
+  },
+  
+  // Confirm ride match
+  confirmMatch(matchId, confirmData) {
+    return api.put(`/ride-matches/${matchId}/confirm`, confirmData)
+  },
+  
+  // Decline ride match
+  declineMatch(matchId, declineData) {
+    return api.put(`/ride-matches/${matchId}/decline`, declineData)
+  }
+}
+
 export default api

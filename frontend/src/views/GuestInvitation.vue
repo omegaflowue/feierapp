@@ -69,6 +69,112 @@
             </div>
           </div>
           
+          <!-- Anreise Section (only shown if guest accepted) -->
+          <div v-if="guest && guest.status === 'accepted'" class="card mt-4">
+            <div class="card-header">
+              <h5 class="mb-0">
+                <i class="fas fa-car me-2"></i>
+                Anreise & Mitfahrgelegenheiten
+              </h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <button 
+                    class="btn btn-outline-success w-100"
+                    :class="{ active: travelOption === 'self' }"
+                    @click="travelOption = 'self'"
+                  >
+                    <i class="fas fa-car me-2"></i>
+                    Fahre selbst
+                  </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <button 
+                    class="btn btn-outline-primary w-100"
+                    :class="{ active: travelOption === 'offer' }"
+                    @click="travelOption = 'offer'"
+                  >
+                    <i class="fas fa-hand-holding-heart me-2"></i>
+                    Biete Mitfahrt an
+                  </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <button 
+                    class="btn btn-outline-warning w-100"
+                    :class="{ active: travelOption === 'request' }"
+                    @click="travelOption = 'request'"
+                  >
+                    <i class="fas fa-hand-paper me-2"></i>
+                    Suche Mitfahrt
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Ride Offer Form -->
+              <div v-if="travelOption === 'offer'" class="mt-4">
+                <RideOfferForm 
+                  :event-code="event.unique_code"
+                  :guest-token="$route.params.token"
+                  :guest-info="guest"
+                  @offer-created="handleOfferCreated"
+                  @cancel="travelOption = null"
+                />
+              </div>
+              
+              <!-- Ride Request Form -->
+              <div v-if="travelOption === 'request'" class="mt-4">
+                <RideRequestForm 
+                  :event-code="event.unique_code"
+                  :guest-token="$route.params.token"
+                  :guest-info="guest"
+                  @request-created="handleRequestCreated"
+                  @cancel="travelOption = null"
+                />
+              </div>
+              
+              <!-- Self Drive Info -->
+              <div v-if="travelOption === 'self'" class="mt-4">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>
+                  Sie fahren selbst zum Event. Falls Sie später doch eine Mitfahrgelegenheit anbieten oder suchen möchten, können Sie diese Option jederzeit ändern.
+                </div>
+              </div>
+              
+              <!-- My Rides Overview -->
+              <div v-if="myRides && (myRides.offers.length > 0 || myRides.requests.length > 0)" class="mt-4">
+                <h6>Meine Mitfahrgelegenheiten</h6>
+                
+                <!-- My Offers -->
+                <div v-if="myRides.offers.length > 0" class="mb-3">
+                  <h6 class="text-primary">Meine Angebote:</h6>
+                  <div v-for="offer in myRides.offers" :key="offer.id" class="card mb-2">
+                    <div class="card-body py-2">
+                      <small>
+                        <strong>{{ offer.departure_location }}</strong> um {{ formatDateTime(offer.departure_time) }}
+                        - {{ offer.available_seats }} Plätze ({{ offer.remaining_seats }} frei)
+                        <span class="badge bg-primary ms-2">{{ offer.status }}</span>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- My Requests -->
+                <div v-if="myRides.requests.length > 0">
+                  <h6 class="text-warning">Meine Gesuche:</h6>
+                  <div v-for="request in myRides.requests" :key="request.id" class="card mb-2">
+                    <div class="card-body py-2">
+                      <small>
+                        <strong>{{ request.pickup_location }}</strong> - {{ request.passenger_count }} Person(en)
+                        <span class="badge bg-warning ms-2">{{ request.status }}</span>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div v-if="guest && guest.status !== 'pending'" class="card mt-4">
             <div class="card-header">
               <h5 class="mb-0">Ihre Beiträge</h5>
@@ -119,10 +225,16 @@
 </template>
 
 <script>
-import apiService from '@/services/api'
+import apiService, { rideService } from '@/services/api'
+import RideOfferForm from '@/components/RideOfferForm.vue'
+import RideRequestForm from '@/components/RideRequestForm.vue'
 
 export default {
   name: 'GuestInvitation',
+  components: {
+    RideOfferForm,
+    RideRequestForm
+  },
   data() {
     return {
       loading: true,
@@ -139,7 +251,9 @@ export default {
         type: '',
         item: '',
         quantity: ''
-      }
+      },
+      travelOption: null,
+      myRides: null
     }
   },
   computed: {
@@ -151,6 +265,9 @@ export default {
     await this.loadGuest()
     if (this.guest) {
       await this.loadContributions()
+      if (this.guest.status === 'accepted') {
+        await this.loadMyRides()
+      }
     }
   },
   methods: {
@@ -204,7 +321,64 @@ export default {
     },
     formatDate(dateString) {
       return new Date(dateString).toLocaleString('de-DE')
+    },
+    
+    formatDateTime(dateString) {
+      if (!dateString) return 'Nicht angegeben'
+      
+      const date = new Date(dateString)
+      return date.toLocaleString('de-DE', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    },
+    
+    async loadMyRides() {
+      try {
+        const response = await rideService.getGuestRides(this.$route.params.token)
+        this.myRides = response.data
+      } catch (error) {
+        console.error('Error loading my rides:', error)
+      }
+    },
+    
+    async handleOfferCreated(offer) {
+      this.travelOption = null
+      await this.loadMyRides()
+      alert('Mitfahrgelegenheit wurde erfolgreich erstellt!')
+    },
+    
+    async handleRequestCreated(request) {
+      this.travelOption = null
+      await this.loadMyRides()
+      alert('Mitfahrt-Gesuch wurde erfolgreich erstellt!')
     }
   }
 }
 </script>
+
+<style scoped>
+.btn.active {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+  color: white !important;
+}
+
+.btn-outline-success.active {
+  background-color: var(--bs-success) !important;
+  border-color: var(--bs-success) !important;
+}
+
+.btn-outline-warning.active {
+  background-color: var(--bs-warning) !important;
+  border-color: var(--bs-warning) !important;
+  color: #212529 !important;
+}
+
+.card {
+  transition: all 0.2s ease-in-out;
+}
+</style>

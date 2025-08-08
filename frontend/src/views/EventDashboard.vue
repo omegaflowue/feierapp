@@ -25,13 +25,31 @@
           </div>
         </div>
         
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Gäste</h5>
-            <button class="btn btn-primary btn-sm" @click="openAddGuestModal">
-              Gast hinzufügen
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="guests-tab" data-bs-toggle="tab" data-bs-target="#guests-pane" type="button" role="tab">
+              <i class="fas fa-users me-2"></i>Gäste ({{ statistics?.total_guests || 0 }})
             </button>
-          </div>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="rides-tab" data-bs-toggle="tab" data-bs-target="#rides-pane" type="button" role="tab">
+              <i class="fas fa-car me-2"></i>Mitfahrgelegenheiten
+            </button>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="dashboardTabsContent">
+          <!-- Guests Tab -->
+          <div class="tab-pane fade show active" id="guests-pane" role="tabpanel">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Gäste</h5>
+                <button class="btn btn-primary btn-sm" @click="openAddGuestModal">
+                  Gast hinzufügen
+                </button>
+              </div>
           <div class="card-body">
             <div v-if="guests.length === 0" class="text-muted">
               Noch keine Gäste eingeladen
@@ -76,6 +94,17 @@
                 </tbody>
               </table>
             </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Rides Tab -->
+          <div class="tab-pane fade" id="rides-pane" role="tabpanel">
+            <RideBoard 
+              :event-code="$route.params.code"
+              :guest-token="null"
+              @guest-authentication-required="handleGuestAuthRequired"
+            />
           </div>
         </div>
       </div>
@@ -200,9 +229,13 @@
 <script>
 import { eventService } from '@/services/api'
 import { Modal } from 'bootstrap'
+import RideBoard from './RideBoard.vue'
 
 export default {
   name: 'EventDashboard',
+  components: {
+    RideBoard
+  },
   data() {
     return {
       loading: true,
@@ -324,6 +357,10 @@ export default {
       } finally {
         this.guestLoading = false
       }
+    },
+    
+    handleGuestAuthRequired() {
+      alert('Für die Nutzung der Mitfahrgelegenheiten müssen Sie als Gast eingeloggt sein. Verwenden Sie Ihren persönlichen Einladungslink.')
     }
   },
   

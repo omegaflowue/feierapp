@@ -26,6 +26,12 @@ const routes = [
     name: 'GuestInvitation',
     component: GuestInvitation,
     props: true
+  },
+  {
+    path: '/rides/:code',
+    name: 'Rides',
+    component: () => import('../views/RideBoard.vue'),
+    props: true
   }
 ]
 

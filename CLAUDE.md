@@ -35,6 +35,7 @@ Key Backend Features:
 Key Frontend Features:
 - Event creation and management dashboard
 - Guest invitation interface with personalized tokens
+- **Ride sharing system** with offers, requests, and matching
 - Responsive design with Bootstrap components
 - API service layer in `frontend/src/services/api.js`
 
@@ -124,14 +125,24 @@ npm run dev
 ## Key Files to Understand
 
 ### Backend
-- `backend/config/web.php:51-73` - URL routing rules for REST API
+- `backend/config/web.php:51-83` - URL routing rules for REST API including ride sharing
 - `backend/controllers/EventController.php:57-82` - Event view with statistics
+- `backend/controllers/RideController.php` - Complete ride sharing API endpoints
 - `backend/models/Event.php` - Event model with validation rules
+- `backend/models/RideOffer.php` - Ride offer model with seat management
+- `backend/models/RideRequest.php` - Ride request model with matching logic
+- `backend/models/RideMatch.php` - Match model with confirmation workflow
 
 ### Frontend  
-- `frontend/src/router/index.js` - Vue Router configuration
-- `frontend/src/services/api.js` - API service layer with axios
+- `frontend/src/router/index.js` - Vue Router configuration including ride routes
+- `frontend/src/services/api.js` - API service layer with axios and rideService
+- `frontend/src/views/RideBoard.vue` - Main ride sharing interface
+- `frontend/src/components/RideOfferCard.vue` - Ride offer display component
+- `frontend/src/components/RideRequestCard.vue` - Ride request display component
+- `frontend/src/components/RideOfferForm.vue` - Form for creating ride offers
+- `frontend/src/components/RideRequestForm.vue` - Form for requesting rides
 - `frontend/vue.config.js` - Build configuration with ESLint disabled
 
 ### Database
 - `database/schema.sql` - Complete database schema with indexes
+- `database/ride_sharing_migration.sql` - Additional tables for ride sharing feature

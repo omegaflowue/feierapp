@@ -70,6 +70,17 @@ $config = [
                 'POST guests/<token:[a-zA-Z0-9]+>/contributions' => 'contribution/create',
                 'PUT contributions/<id:\d+>' => 'contribution/update',
                 'DELETE contributions/<id:\d+>' => 'contribution/delete',
+                
+                // Ride sharing endpoints
+                'GET events/<code:[a-zA-Z0-9]+>/rides' => 'ride/index',
+                'POST events/<code:[a-zA-Z0-9]+>/ride-offers' => 'ride/create-offer',
+                'POST events/<code:[a-zA-Z0-9]+>/ride-requests' => 'ride/create-request',
+                'GET guests/<token:[a-zA-Z0-9]+>/rides' => 'ride/guest-rides',
+                'PUT ride-offers/<id:\d+>' => 'ride/update-offer',
+                'PUT ride-requests/<id:\d+>' => 'ride/update-request',
+                'POST ride-matches' => 'ride/create-match',
+                'PUT ride-matches/<id:\d+>/confirm' => 'ride/confirm-match',
+                'PUT ride-matches/<id:\d+>/decline' => 'ride/decline-match',
             ],
         ],
         'response' => [

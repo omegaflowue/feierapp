@@ -46,9 +46,15 @@ $config = [
         'db' => $db,
         'urlManager' => [
             'enablePrettyUrl' => true,
-            'enableStrictParsing' => true,
+            'enableStrictParsing' => false,
             'showScriptName' => false,
             'rules' => [
+                '' => 'site/index',
+                
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'event', 'except' => ['delete']],
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'guest', 'except' => ['delete']],
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'contribution', 'except' => []],
+                
                 'GET events' => 'event/index',
                 'POST events' => 'event/create',
                 'GET events/<code:[a-zA-Z0-9]+>' => 'event/view',

@@ -18,6 +18,7 @@
                     type="text" 
                     class="form-control" 
                     id="title"
+                    name="title"
                     v-model="event.title"
                     required
                     placeholder="z.B. Geburtstag von Maria"
@@ -42,6 +43,7 @@
                   type="text" 
                   class="form-control" 
                   id="location"
+                  name="location"
                   v-model="event.location"
                   required
                   placeholder="z.B. Musterstraße 123, 12345 Musterstadt"
@@ -53,6 +55,7 @@
                 <textarea 
                   class="form-control" 
                   id="description"
+                  name="description"
                   rows="3"
                   v-model="event.description"
                   placeholder="Weitere Details zur Feier..."
@@ -70,6 +73,7 @@
                     type="text" 
                     class="form-control" 
                     id="planner_name"
+                    name="planner_name"
                     v-model="event.planner_name"
                     required
                     placeholder="Max Mustermann"
@@ -82,6 +86,7 @@
                     type="email" 
                     class="form-control" 
                     id="planner_email"
+                    name="planner_email"
                     v-model="event.planner_email"
                     required
                     placeholder="max@example.com"
@@ -95,6 +100,7 @@
                   type="tel" 
                   class="form-control" 
                   id="planner_phone"
+                  name="planner_phone"
                   v-model="event.planner_phone"
                   placeholder="+49 123 456789"
                 >
@@ -133,23 +139,23 @@
             
             <div class="card">
               <div class="card-body">
-                <h6 class="card-title">{{ createdEvent.title }}</h6>
+                <h6 class="card-title">{{ createdEvent?.title || 'Event' }}</h6>
                 <p class="card-text">
                   <small class="text-muted">
                     <i class="fas fa-calendar me-1"></i>
-                    {{ formatDate(createdEvent.event_date) }}
+                    {{ createdEvent?.event_date ? formatDate(createdEvent.event_date) : '' }}
                     <br>
                     <i class="fas fa-map-marker-alt me-1"></i>
-                    {{ createdEvent.location }}
+                    {{ createdEvent?.location || '' }}
                   </small>
                 </p>
                 
                 <div class="alert alert-info mb-0">
                   <strong>Event-Code:</strong>
-                  <code class="ms-2">{{ createdEvent.unique_code }}</code>
+                  <code class="ms-2">{{ createdEvent?.unique_code || '' }}</code>
                   <button 
                     class="btn btn-sm btn-outline-info ms-2" 
-                    @click="copyToClipboard(createdEvent.unique_code)"
+                    @click="copyToClipboard(createdEvent?.unique_code)"
                   >
                     <i class="fas fa-copy"></i>
                   </button>
@@ -207,16 +213,30 @@ export default {
         modal.show()
         
       } catch (error) {
+        console.log('Full error object:', error)
+        console.log('Error response:', error.response)
+        console.log('Error status:', error.response?.status)
+        console.log('Error data:', error.response?.data)
+        
         this.error = error.response?.data?.errors 
           ? Object.values(error.response.data.errors).flat().join(', ')
-          : 'Fehler beim Erstellen des Events. Bitte versuchen Sie es erneut.'
+          : `Fehler beim Erstellen des Events: ${error.message}. Status: ${error.response?.status || 'Keine Verbindung'}`
       } finally {
         this.loading = false
       }
     },
     
     goToEventDashboard() {
-      this.$router.push(`/event/${this.createdEvent.unique_code}`)
+      if (this.createdEvent?.unique_code) {
+        // Close modal before navigation
+        const modal = Modal.getInstance(this.$refs.successModal)
+        if (modal) {
+          modal.hide()
+        }
+        
+        // Navigate to event dashboard
+        this.$router.push(`/event/${this.createdEvent.unique_code}`)
+      }
     },
     
     formatDate(dateString) {
@@ -238,6 +258,13 @@ export default {
       } catch (err) {
         console.error('Failed to copy text: ', err)
       }
+    }
+  },
+  beforeUnmount() {
+    // Clean up any open modals when component is destroyed
+    const modal = Modal.getInstance(this.$refs.successModal)
+    if (modal) {
+      modal.dispose()
     }
   }
 }

@@ -98,7 +98,7 @@
       
       <div class="col-md-4 mb-4">
         <div class="card text-center">
-          <div-body">
+          <div class="card-body">
             <i class="fas fa-envelope fa-2x text-danger mb-3"></i>
             <h6 class="card-title">Einladungslinks</h6>
             <p class="card-text small">

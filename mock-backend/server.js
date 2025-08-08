@@ -206,10 +206,276 @@ app.post('/events/:code/guests', (req, res) => {
   });
 });
 
+// RIDE SHARING ENDPOINTS
+
+// Get all rides for an event
+app.get('/events/:code/rides', (req, res) => {
+  // First get the event ID
+  db.query('SELECT id FROM events WHERE unique_code = ?', [req.params.code], (err, eventResults) => {
+    if (err) {
+      console.error('Error fetching event:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (eventResults.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    const eventId = eventResults[0].id;
+    
+    // Get ride offers for this event
+    db.query(`
+      SELECT ro.*, g.name as driver_name, g.email as driver_email, g.phone as driver_phone
+      FROM ride_offers ro 
+      LEFT JOIN guests g ON ro.driver_guest_id = g.id 
+      WHERE ro.event_id = ? 
+      ORDER BY ro.departure_time ASC
+    `, [eventId], (err, offers) => {
+      if (err) {
+        console.error('Error fetching ride offers:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // Get ride requests for this event
+      db.query(`
+        SELECT rr.*, g.name as passenger_name, g.email as passenger_email, g.phone as passenger_phone
+        FROM ride_requests rr 
+        LEFT JOIN guests g ON rr.passenger_guest_id = g.id 
+        WHERE rr.event_id = ? 
+        ORDER BY rr.created_at DESC
+      `, [eventId], (err, requests) => {
+        if (err) {
+          console.error('Error fetching ride requests:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Format offers with driver info and remaining seats
+        const formattedOffers = offers.map(offer => ({
+          ...offer,
+          driver: {
+            name: offer.driver_name,
+            email: offer.driver_email,
+            phone: offer.driver_phone
+          },
+          remaining_seats: offer.available_seats, // Simplified for now
+          confirmed_matches_count: 0
+        }));
+        
+        // Format requests with passenger info
+        const formattedRequests = requests.map(request => ({
+          ...request,
+          passenger: {
+            name: request.passenger_name,
+            email: request.passenger_email,
+            phone: request.passenger_phone
+          },
+          confirmed_match: null
+        }));
+        
+        const statistics = {
+          total_offers: offers.length,
+          active_offers: offers.filter(o => o.status === 'active').length,
+          total_requests: requests.length,
+          open_requests: requests.filter(r => r.status === 'open').length,
+          total_available_seats: offers.reduce((sum, o) => sum + o.available_seats, 0)
+        };
+        
+        console.log(`Found ${offers.length} ride offers and ${requests.length} ride requests for event ${req.params.code}`);
+        res.json({
+          offers: formattedOffers,
+          requests: formattedRequests,
+          statistics: statistics
+        });
+      });
+    });
+  });
+});
+
+// Create ride offer
+app.post('/events/:code/ride-offers', (req, res) => {
+  const { guest_token, departure_location, departure_time, available_seats, car_description, notes, contact_info } = req.body;
+  
+  if (!guest_token) {
+    return res.status(400).json({ error: 'Guest token is required' });
+  }
+  
+  // First get the event
+  db.query('SELECT id FROM events WHERE unique_code = ?', [req.params.code], (err, eventResults) => {
+    if (err) {
+      console.error('Error fetching event:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (eventResults.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    const eventId = eventResults[0].id;
+    
+    // Find guest by token
+    db.query('SELECT * FROM guests WHERE unique_token = ? AND event_id = ?', [guest_token, eventId], (err, guestResults) => {
+      if (err) {
+        console.error('Error fetching guest:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (guestResults.length === 0) {
+        return res.status(404).json({ error: 'Guest not found' });
+      }
+      
+      const guest = guestResults[0];
+      
+      const insertQuery = `
+        INSERT INTO ride_offers (event_id, driver_guest_id, departure_location, departure_time, available_seats, car_description, notes, contact_info)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      db.query(insertQuery, [
+        eventId,
+        guest.id,
+        departure_location,
+        departure_time,
+        parseInt(available_seats) || 1,
+        car_description,
+        notes,
+        contact_info || guest.phone || guest.email
+      ], (err, result) => {
+        if (err) {
+          console.error('Error creating ride offer:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Get the created offer
+        db.query('SELECT * FROM ride_offers WHERE id = ?', [result.insertId], (err, offerResults) => {
+          if (err) {
+            console.error('Error fetching created offer:', err);
+            return res.status(500).json({ error: 'Database error' });
+          }
+          
+          const newOffer = offerResults[0];
+          console.log('Ride offer created:', newOffer);
+          res.status(201).json(newOffer);
+        });
+      });
+    });
+  });
+});
+
+// Create ride request
+app.post('/events/:code/ride-requests', (req, res) => {
+  const { guest_token, pickup_location, flexible_pickup, passenger_count, notes } = req.body;
+  
+  if (!guest_token) {
+    return res.status(400).json({ error: 'Guest token is required' });
+  }
+  
+  // First get the event
+  db.query('SELECT id FROM events WHERE unique_code = ?', [req.params.code], (err, eventResults) => {
+    if (err) {
+      console.error('Error fetching event:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (eventResults.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    const eventId = eventResults[0].id;
+    
+    // Find guest by token
+    db.query('SELECT * FROM guests WHERE unique_token = ? AND event_id = ?', [guest_token, eventId], (err, guestResults) => {
+      if (err) {
+        console.error('Error fetching guest:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (guestResults.length === 0) {
+        return res.status(404).json({ error: 'Guest not found' });
+      }
+      
+      const guest = guestResults[0];
+      
+      const insertQuery = `
+        INSERT INTO ride_requests (event_id, passenger_guest_id, pickup_location, flexible_pickup, passenger_count, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      
+      db.query(insertQuery, [
+        eventId,
+        guest.id,
+        pickup_location,
+        flexible_pickup || false,
+        parseInt(passenger_count) || 1,
+        notes
+      ], (err, result) => {
+        if (err) {
+          console.error('Error creating ride request:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Get the created request
+        db.query('SELECT * FROM ride_requests WHERE id = ?', [result.insertId], (err, requestResults) => {
+          if (err) {
+            console.error('Error fetching created request:', err);
+            return res.status(500).json({ error: 'Database error' });
+          }
+          
+          const newRequest = requestResults[0];
+          console.log('Ride request created:', newRequest);
+          res.status(201).json(newRequest);
+        });
+      });
+    });
+  });
+});
+
+// Get rides for specific guest
+app.get('/guests/:token/rides', (req, res) => {
+  // Find guest by token
+  db.query('SELECT * FROM guests WHERE unique_token = ?', [req.params.token], (err, guestResults) => {
+    if (err) {
+      console.error('Error fetching guest:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (guestResults.length === 0) {
+      return res.status(404).json({ error: 'Guest not found' });
+    }
+    
+    const guest = guestResults[0];
+    
+    // Get guest's ride offers
+    db.query('SELECT * FROM ride_offers WHERE driver_guest_id = ?', [guest.id], (err, offers) => {
+      if (err) {
+        console.error('Error fetching guest offers:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // Get guest's ride requests
+      db.query('SELECT * FROM ride_requests WHERE passenger_guest_id = ?', [guest.id], (err, requests) => {
+        if (err) {
+          console.error('Error fetching guest requests:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        console.log(`Found ${offers.length} offers and ${requests.length} requests for guest ${req.params.token}`);
+        res.json({
+          offers: offers,
+          requests: requests
+        });
+      });
+    });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Mock Backend Server running on http://localhost:${PORT}`);
   console.log('Available endpoints:');
   console.log(`  GET  http://localhost:${PORT}/`);
   console.log(`  GET  http://localhost:${PORT}/events`);
   console.log(`  POST http://localhost:${PORT}/events`);
+  console.log(`  GET  http://localhost:${PORT}/events/{code}/rides`);
+  console.log(`  POST http://localhost:${PORT}/events/{code}/ride-offers`);
+  console.log(`  POST http://localhost:${PORT}/events/{code}/ride-requests`);
+  console.log(`  GET  http://localhost:${PORT}/guests/{token}/rides`);
 });
